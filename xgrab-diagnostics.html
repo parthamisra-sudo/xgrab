@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>XGrab Diagnostics</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .test {
+            background: white;
+            padding: 20px;
+            margin: 10px 0;
+            border-radius: 8px;
+            border-left: 4px solid #1DA1F2;
+        }
+        .success {
+            border-left-color: #10b981;
+        }
+        .error {
+            border-left-color: #ef4444;
+        }
+        .warning {
+            border-left-color: #f59e0b;
+        }
+        button {
+            background: #1DA1F2;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 5px;
+        }
+        button:hover {
+            background: #1a8cd8;
+        }
+        pre {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+        h1 {
+            color: #1DA1F2;
+        }
+        .status {
+            font-weight: bold;
+            font-size: 18px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔧 XGrab Server Diagnostics</h1>
+    
+    <div class="test">
+        <h3>1️⃣ Browser Information</h3>
+        <p><strong>Hostname:</strong> <span id="hostname"></span></p>
+        <p><strong>Origin:</strong> <span id="origin"></span></p>
+        <p><strong>Protocol:</strong> <span id="protocol"></span></p>
+        <p><strong>Detected API Endpoint:</strong> <span id="apiEndpoint"></span></p>
+    </div>
+
+    <div class="test">
+        <h3>2️⃣ Server Health Check</h3>
+        <button onclick="testHealth()">Test /health Endpoint</button>
+        <div id="healthResult"></div>
+    </div>
+
+    <div class="test">
+        <h3>3️⃣ My Tweets Endpoint Check</h3>
+        <button onclick="testMyTweets()">Test /api/my-tweets Endpoint</button>
+        <div id="myTweetsResult"></div>
+    </div>
+
+    <div class="test">
+        <h3>4️⃣ Delete Tweet Endpoint Check</h3>
+        <button onclick="testDeleteTweet()">Test /api/delete-tweet Endpoint</button>
+        <div id="deleteResult"></div>
+    </div>
+
+    <div class="test">
+        <h3>5️⃣ Manual Endpoint Test</h3>
+        <input type="text" id="customEndpoint" placeholder="http://localhost:3001" style="width: 300px; padding: 8px;">
+        <button onclick="testCustomEndpoint()">Test Custom Endpoint</button>
+        <div id="customResult"></div>
+    </div>
+
+    <script>
+        // Display browser info
+        document.getElementById('hostname').textContent = window.location.hostname || '(empty)';
+        document.getElementById('origin').textContent = window.location.origin;
+        document.getElementById('protocol').textContent = window.location.protocol;
+        
+        // Detect API endpoint
+        const apiEndpoint = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
+            ? 'http://localhost:3001' 
+            : window.location.origin;
+        document.getElementById('apiEndpoint').textContent = apiEndpoint;
+
+        async function testHealth() {
+            const result = document.getElementById('healthResult');
+            result.innerHTML = '<p>⏳ Testing...</p>';
+            
+            try {
+                const response = await fetch('http://localhost:3001/health');
+                const data = await response.json();
+                
+                result.innerHTML = `
+                    <p class="status" style="color: #10b981;">✅ SUCCESS</p>
+                    <pre>${JSON.stringify(data, null, 2)}</pre>
+                    <p>Server is running and responding!</p>
+                `;
+            } catch (error) {
+                result.innerHTML = `
+                    <p class="status" style="color: #ef4444;">❌ FAILED</p>
+                    <pre>${error.message}</pre>
+                    <p><strong>Action:</strong> Make sure server is running with: <code>node xgrab-server-fixed.js</code></p>
+                `;
+            }
+        }
+
+        async function testMyTweets() {
+            const result = document.getElementById('myTweetsResult');
+            result.innerHTML = '<p>⏳ Testing...</p>';
+            
+            try {
+                const response = await fetch('http://localhost:3001/api/my-tweets', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({})
+                });
+                
+                const data = await response.json();
+                
+                if (data.error === 'OAuth credentials required') {
+                    result.innerHTML = `
+                        <p class="status" style="color: #10b981;">✅ ENDPOINT EXISTS!</p>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                        <p>The endpoint is working correctly. It's asking for OAuth credentials, which is expected.</p>
+                        <p><strong>Action:</strong> Configure OAuth tokens in XGrab Configuration tab.</p>
+                    `;
+                } else {
+                    result.innerHTML = `
+                        <p class="status" style="color: #f59e0b;">⚠️ UNEXPECTED RESPONSE</p>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                    `;
+                }
+            } catch (error) {
+                result.innerHTML = `
+                    <p class="status" style="color: #ef4444;">❌ ENDPOINT NOT FOUND</p>
+                    <pre>${error.message}</pre>
+                    <p><strong>This means your server is running OLD CODE!</strong></p>
+                    <p><strong>Action:</strong></p>
+                    <ol>
+                        <li>Stop server: Press Ctrl+C in server terminal</li>
+                        <li>Make sure you're using the NEW file: <code>xgrab-server-fixed.js</code></li>
+                        <li>Start server: <code>node xgrab-server-fixed.js</code></li>
+                        <li>Refresh this page and test again</li>
+                    </ol>
+                `;
+            }
+        }
+
+        async function testDeleteTweet() {
+            const result = document.getElementById('deleteResult');
+            result.innerHTML = '<p>⏳ Testing...</p>';
+            
+            try {
+                const response = await fetch('http://localhost:3001/api/delete-tweet', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({})
+                });
+                
+                const data = await response.json();
+                
+                if (data.error === 'Missing required parameters') {
+                    result.innerHTML = `
+                        <p class="status" style="color: #10b981;">✅ ENDPOINT EXISTS!</p>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                        <p>The delete endpoint is working correctly.</p>
+                    `;
+                } else {
+                    result.innerHTML = `
+                        <p class="status" style="color: #f59e0b;">⚠️ UNEXPECTED RESPONSE</p>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                    `;
+                }
+            } catch (error) {
+                result.innerHTML = `
+                    <p class="status" style="color: #ef4444;">❌ ENDPOINT NOT FOUND</p>
+                    <pre>${error.message}</pre>
+                    <p><strong>Server is running OLD CODE!</strong></p>
+                `;
+            }
+        }
+
+        async function testCustomEndpoint() {
+            const endpoint = document.getElementById('customEndpoint').value || 'http://localhost:3001';
+            const result = document.getElementById('customResult');
+            result.innerHTML = '<p>⏳ Testing...</p>';
+            
+            try {
+                const response = await fetch(`${endpoint}/health`);
+                const data = await response.json();
+                
+                result.innerHTML = `
+                    <p class="status" style="color: #10b981;">✅ SUCCESS</p>
+                    <pre>${JSON.stringify(data, null, 2)}</pre>
+                    <p>Server at ${endpoint} is responding!</p>
+                `;
+            } catch (error) {
+                result.innerHTML = `
+                    <p class="status" style="color: #ef4444;">❌ FAILED</p>
+                    <pre>${error.message}</pre>
+                    <p>Cannot reach server at ${endpoint}</p>
+                `;
+            }
+        }
+
+        // Auto-run tests on load
+        window.onload = () => {
+            console.log('XGrab Diagnostics Page Loaded');
+            console.log('API Endpoint:', apiEndpoint);
+        };
+    </script>
+</body>
+</html>

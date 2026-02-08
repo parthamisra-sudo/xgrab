@@ -1,0 +1,2429 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>XGrab - X Export Tool</title>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- SheetJS for Excel export -->
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+    <!-- jsPDF for PDF export -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #000000 0%, #1a1a1a 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+            position: relative;
+        }
+
+        .header h1 {
+            font-size: 32px;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .header p {
+            opacity: 0.9;
+            font-size: 14px;
+        }
+
+        .content {
+            padding: 30px;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 30px;
+            border-bottom: 2px solid #e1e8ed;
+        }
+
+        .tab {
+            padding: 12px 24px;
+            cursor: pointer;
+            border-bottom: 3px solid transparent;
+            margin-bottom: -2px;
+            transition: all 0.3s;
+            font-weight: 600;
+            color: #657786;
+        }
+
+        .tab:hover {
+            color: #000000;
+        }
+
+        .tab.active {
+            color: #000000;
+            border-bottom-color: #000000;
+        }
+
+        .form-group {
+            margin-bottom: 25px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #333;
+            font-size: 14px;
+        }
+
+        input[type="text"],
+        input[type="password"],
+        input[type="date"],
+        select,
+        textarea {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e1e8ed;
+            border-radius: 8px;
+            font-size: 15px;
+            transition: all 0.3s;
+            font-family: inherit;
+        }
+
+        input[type="text"]:focus,
+        input[type="password"]:focus,
+        input[type="date"]:focus,
+        select:focus,
+        textarea:focus {
+            outline: none;
+            border-color: #000000;
+            box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.1);
+        }
+
+        .password-input-wrapper {
+            position: relative;
+        }
+
+        .password-textarea {
+            font-family: 'Courier New', monospace;
+            resize: vertical;
+        }
+
+        .password-textarea.masked {
+            font-family: 'password', monospace;
+            letter-spacing: 0.2em;
+        }
+
+        .toggle-password {
+            position: absolute;
+            right: 12px;
+            top: 12px;
+            background: rgba(0, 0, 0, 0.05);
+            border: 1px solid #000000;
+            cursor: pointer;
+            color: #000000;
+            font-size: 12px;
+            padding: 6px 12px;
+            border-radius: 4px;
+            transition: all 0.2s;
+        }
+
+        .toggle-password:hover {
+            background: rgba(0, 0, 0, 0.1);
+        }
+
+        .search-input-wrapper {
+            position: relative;
+        }
+
+        .profile-suggestions {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: white;
+            border: 2px solid #000000;
+            border-top: none;
+            border-radius: 0 0 8px 8px;
+            max-height: 300px;
+            overflow-y: auto;
+            z-index: 1000;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        .profile-suggestion {
+            padding: 12px 16px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            transition: background 0.2s;
+            border-bottom: 1px solid #e1e8ed;
+        }
+
+        .profile-suggestion:last-child {
+            border-bottom: none;
+        }
+
+        .profile-suggestion:hover {
+            background: #f7f9fa;
+        }
+
+        .profile-avatar {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+
+        .profile-info {
+            flex: 1;
+        }
+
+        .profile-name {
+            font-weight: 600;
+            color: #14171a;
+            margin-bottom: 2px;
+        }
+
+        .profile-handle {
+            color: #657786;
+            font-size: 14px;
+        }
+
+        .profile-verified {
+            color: #000000;
+            margin-left: 4px;
+        }
+
+        .profile-stats {
+            font-size: 12px;
+            color: #657786;
+            margin-top: 4px;
+        }
+
+        .searching-indicator {
+            padding: 12px 16px;
+            text-align: center;
+            color: #657786;
+        }
+
+        .date-range {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+
+        .search-options {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .radio-option {
+            flex: 1;
+            padding: 15px;
+            border: 2px solid #e1e8ed;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-align: center;
+        }
+
+        .radio-option:hover {
+            border-color: #000000;
+            background: #f7f9fa;
+        }
+
+        .radio-option.selected {
+            border-color: #000000;
+            background: #f0f0f0;
+        }
+
+        .radio-option input[type="radio"] {
+            margin-right: 8px;
+        }
+
+        .button {
+            background: linear-gradient(135deg, #000000 0%, #2d2d2d 100%);
+            color: white;
+            padding: 14px 28px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            width: 100%;
+            margin-top: 10px;
+        }
+
+        .button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
+        }
+
+        .button:active {
+            transform: translateY(0);
+        }
+
+        .button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .button-secondary {
+            background: #10b981;
+        }
+
+        .button-secondary:hover {
+            box-shadow: 0 8px 20px rgba(16, 185, 129, 0.4);
+        }
+
+        .button-danger {
+            background: #ef4444;
+        }
+
+        .button-danger:hover {
+            box-shadow: 0 8px 20px rgba(239, 68, 68, 0.4);
+        }
+
+        .sidebar {
+            background: #f7f9fa;
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+        }
+
+        .sidebar h3 {
+            margin-bottom: 15px;
+            color: #14171a;
+            font-size: 18px;
+        }
+
+        .trending-profile {
+            padding: 12px;
+            background: white;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .trending-profile:hover {
+            transform: translateX(5px);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .trending-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #000000 0%, #2d2d2d 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 600;
+            font-size: 16px;
+        }
+
+        .trending-details {
+            flex: 1;
+        }
+
+        .trending-name {
+            font-weight: 600;
+            color: #14171a;
+            font-size: 14px;
+        }
+
+        .trending-handle {
+            color: #657786;
+            font-size: 13px;
+        }
+
+        .trending-category {
+            font-size: 11px;
+            color: #666666;
+            margin-top: 2px;
+        }
+
+        .interest-selector {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .interest-tag {
+            padding: 8px 16px;
+            border: 2px solid #e1e8ed;
+            border-radius: 20px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 14px;
+            user-select: none;
+        }
+
+        .interest-tag:hover {
+            border-color: #000000;
+            background: #f7f9fa;
+        }
+
+        .interest-tag.selected {
+            background: #000000;
+            color: white;
+            border-color: #000000;
+        }
+
+        .main-layout {
+            display: grid;
+            grid-template-columns: 300px 1fr;
+            gap: 20px;
+        }
+
+        .results {
+            margin-top: 30px;
+        }
+
+        .results-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #e1e8ed;
+        }
+
+        .results-count {
+            font-size: 18px;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .export-button {
+            background: #10b981;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .export-button:hover {
+            background: #059669;
+            transform: translateY(-2px);
+        }
+
+        .tweet-card {
+            background: #f7f9fa;
+            border: 1px solid #e1e8ed;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 15px;
+            transition: all 0.3s;
+        }
+
+        .tweet-card:hover {
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            transform: translateY(-2px);
+        }
+
+        .tweet-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        .tweet-author {
+            font-weight: 600;
+            color: #14171a;
+        }
+
+        .tweet-date {
+            color: #657786;
+            font-size: 14px;
+        }
+
+        .tweet-content {
+            color: #14171a;
+            line-height: 1.6;
+            margin-bottom: 12px;
+        }
+
+        .tweet-stats {
+            display: flex;
+            gap: 20px;
+            color: #657786;
+            font-size: 13px;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #657786;
+        }
+
+        .spinner {
+            border: 3px solid #f3f4f6;
+            border-top: 3px solid #1DA1F2;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .alert {
+            padding: 15px 20px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+
+        .alert-warning {
+            background: #fff7ed;
+            border-left: 4px solid #f59e0b;
+            color: #92400e;
+        }
+
+        .alert-success {
+            background: #f0fdf4;
+            border-left: 4px solid #10b981;
+            color: #065f46;
+        }
+
+        .alert-error {
+            background: #fef2f2;
+            border-left: 4px solid #ef4444;
+            color: #991b1b;
+        }
+
+        .alert-info {
+            background: #eff6ff;
+            border-left: 4px solid #3b82f6;
+            color: #1e40af;
+        }
+
+        .status-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 600;
+        }
+
+        .status-configured {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        .status-not-configured {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .status-healthy {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        .status-unhealthy {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .config-section {
+            background: #f7f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .config-section h3 {
+            margin-bottom: 15px;
+            color: #333;
+        }
+
+        .help-text {
+            font-size: 13px;
+            color: #657786;
+            margin-top: 5px;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+
+        .button-group .button {
+            margin-top: 0;
+            flex: 1;
+            width: auto !important;
+            min-width: 240px;
+            white-space: nowrap;
+            padding: 14px 28px;
+            box-sizing: border-box;
+        }
+
+        .footer {
+            background: #f7f9fa;
+            padding: 20px 30px;
+            border-top: 1px solid #e1e8ed;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
+        .footer-copyright {
+            color: #657786;
+            font-size: 14px;
+        }
+
+        .footer-made-in-india {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: #14171a;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .footer-made-in-india .india-flag {
+            width: 24px;
+            height: 16px;
+            display: inline-block;
+            vertical-align: middle;
+            margin-left: 4px;
+        }
+
+        .footer-made-in-india .heart {
+            color: #ff6b6b;
+            font-size: 16px;
+            animation: heartbeat 1.5s ease-in-out infinite;
+        }
+
+        @keyframes heartbeat {
+            0%, 100% { transform: scale(1); }
+            25% { transform: scale(1.1); }
+            50% { transform: scale(1); }
+        }
+
+        .footer-links {
+            display: flex;
+            gap: 15px;
+            font-size: 14px;
+        }
+
+        .footer-links a {
+            color: #657786;
+            text-decoration: none;
+            transition: color 0.2s;
+        }
+
+        .footer-links a:hover {
+            color: #000000;
+        }
+
+        @media (max-width: 968px) {
+            .main-layout {
+                grid-template-columns: 1fr;
+            }
+            
+            .date-range {
+                grid-template-columns: 1fr;
+            }
+            
+            .button-group {
+                flex-direction: column;
+            }
+
+            .button-group .button {
+                width: 100%;
+                min-width: unset;
+            }
+
+            .footer {
+                flex-direction: column;
+                text-align: center;
+                gap: 10px;
+            }
+
+            .footer-links {
+                justify-content: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+
+        // Curated list of popular profiles by category
+        const PROFILE_DATABASE = {
+            'Technology': [
+                { name: 'Elon Musk', handle: 'elonmusk', avatar: 'EM' },
+                { name: 'Bill Gates', handle: 'BillGates', avatar: 'BG' },
+                { name: 'Tim Cook', handle: 'tim_cook', avatar: 'TC' },
+                { name: 'Sundar Pichai', handle: 'sundarpichai', avatar: 'SP' },
+                { name: 'Satya Nadella', handle: 'satyanadella', avatar: 'SN' }
+            ],
+            'Product Management': [
+                { name: 'Marty Cagan', handle: 'cagan', avatar: 'MC' },
+                { name: 'Julie Zhuo', handle: 'joulee', avatar: 'JZ' },
+                { name: 'Ken Norton', handle: 'kennorton', avatar: 'KN' },
+                { name: 'Shreyas Doshi', handle: 'shreyas', avatar: 'SD' },
+                { name: 'Lenny Rachitsky', handle: 'lennysan', avatar: 'LR' }
+            ],
+            'Business': [
+                { name: 'Gary Vaynerchuk', handle: 'garyvee', avatar: 'GV' },
+                { name: 'Marc Andreessen', handle: 'pmarca', avatar: 'MA' },
+                { name: 'Reid Hoffman', handle: 'reidhoffman', avatar: 'RH' },
+                { name: 'Chamath Palihapitiya', handle: 'chamath', avatar: 'CP' },
+                { name: 'Naval Ravikant', handle: 'naval', avatar: 'NR' }
+            ],
+            'Marketing': [
+                { name: 'Neil Patel', handle: 'neilpatel', avatar: 'NP' },
+                { name: 'Seth Godin', handle: 'ThisIsSethsBlog', avatar: 'SG' },
+                { name: 'Ann Handley', handle: 'MarketingProfs', avatar: 'AH' },
+                { name: 'Rand Fishkin', handle: 'randfish', avatar: 'RF' },
+                { name: 'Jay Baer', handle: 'jaybaer', avatar: 'JB' }
+            ],
+            'Finance': [
+                { name: 'Warren Buffett', handle: 'WarrenBuffett', avatar: 'WB' },
+                { name: 'Cathie Wood', handle: 'CathieDWood', avatar: 'CW' },
+                { name: 'Michael Saylor', handle: 'saylor', avatar: 'MS' },
+                { name: 'Ray Dalio', handle: 'RayDalio', avatar: 'RD' },
+                { name: 'Charlie Munger', handle: 'CharlieMunger', avatar: 'CM' }
+            ],
+            'AI & Machine Learning': [
+                { name: 'Andrew Ng', handle: 'AndrewYNg', avatar: 'AN' },
+                { name: 'Yann LeCun', handle: 'ylecun', avatar: 'YL' },
+                { name: 'Fei-Fei Li', handle: 'drfeifei', avatar: 'FL' },
+                { name: 'Sam Altman', handle: 'sama', avatar: 'SA' },
+                { name: 'Demis Hassabis', handle: 'demishassabis', avatar: 'DH' }
+            ],
+            'Startups': [
+                { name: 'Paul Graham', handle: 'paulg', avatar: 'PG' },
+                { name: 'Jason Calacanis', handle: 'Jason', avatar: 'JC' },
+                { name: 'David Sacks', handle: 'DavidSacks', avatar: 'DS' },
+                { name: 'Elad Gil', handle: 'eladgil', avatar: 'EG' },
+                { name: 'Jessica Livingston', handle: 'jesslivingston', avatar: 'JL' }
+            ],
+            'Design': [
+                { name: 'Tobias van Schneider', handle: 'vanschneider', avatar: 'TV' },
+                { name: 'Paula Scher', handle: 'PaulaScher', avatar: 'PS' },
+                { name: 'Chris Do', handle: 'theChrisDo', avatar: 'CD' },
+                { name: 'Jessica Walsh', handle: 'jessicavwalsh', avatar: 'JW' },
+                { name: 'Mike Monteiro', handle: 'monteiro', avatar: 'MM' }
+            ]
+        };
+
+        const AVAILABLE_INTERESTS = Object.keys(PROFILE_DATABASE);
+
+        function XGrabApp() {
+            const [activeTab, setActiveTab] = useState('search');
+            const [config, setConfig] = useState({
+                consumerKey: '',
+                consumerSecret: '',
+                bearerToken: '',
+                accessToken: '', // OAuth 1.0a for delete operations
+                accessTokenSecret: '', // OAuth 1.0a for delete operations
+                apiEndpoint: window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
+                    ? 'http://localhost:3001' 
+                    : window.location.origin,
+                interests: [] // New: user's selected interests
+            });
+            const [showPasswords, setShowPasswords] = useState({
+                consumerKey: false,
+                consumerSecret: false,
+                bearerToken: false,
+                accessToken: false,
+                accessTokenSecret: false
+            });
+            const [handle, setHandle] = useState('');
+            const [profileSuggestions, setProfileSuggestions] = useState([]);
+            const [showSuggestions, setShowSuggestions] = useState(false);
+            const [searchingProfiles, setSearchingProfiles] = useState(false);
+            const [selectedProfile, setSelectedProfile] = useState(null);
+            const [searchType, setSearchType] = useState('all');
+            const [contentType, setContentType] = useState('both'); // New: posts, replies, both
+            const [startDate, setStartDate] = useState('');
+            const [endDate, setEndDate] = useState('');
+            const [maxTweets, setMaxTweets] = useState(100);
+            const [loading, setLoading] = useState(false);
+            const [tweets, setTweets] = useState([]);
+            const [searched, setSearched] = useState(false);
+            const [alert, setAlert] = useState(null);
+            const [serverHealth, setServerHealth] = useState({ status: 'checking' });
+            
+            // Bulk Delete state variables
+            const [deleteTweets, setDeleteTweets] = useState([]);
+            const [selectedTweetIds, setSelectedTweetIds] = useState(new Set());
+            const [deleteStartDate, setDeleteStartDate] = useState('');
+            const [deleteEndDate, setDeleteEndDate] = useState('');
+            const [deleteLoading, setDeleteLoading] = useState(false);
+            const [deletePage, setDeletePage] = useState(1);
+            const [deleteTotalPages, setDeleteTotalPages] = useState(1);
+            const [myHandle, setMyHandle] = useState('');
+            const [deleteSearched, setDeleteSearched] = useState(false);
+            const [deleteProgress, setDeleteProgress] = useState({ current: 0, total: 0, errors: [] });
+            const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+            const [deleteConfirmText, setDeleteConfirmText] = useState('');
+            
+            const searchTimeoutRef = useRef(null);
+            const suggestionsRef = useRef(null);
+
+            // Load config from localStorage on mount
+            useEffect(() => {
+                const savedConfig = localStorage.getItem('xgrab_config');
+                if (savedConfig) {
+                    try {
+                        const parsed = JSON.parse(savedConfig);
+                        // Ensure interests array exists
+                        if (!parsed.interests) {
+                            parsed.interests = [];
+                        }
+                        setConfig(parsed);
+                    } catch (e) {
+                        console.error('Failed to load config:', e);
+                    }
+                }
+            }, []);
+
+            // Check server health when config.apiEndpoint changes or Configuration tab opens
+            useEffect(() => {
+                if (config.apiEndpoint && activeTab === 'settings') {
+                    checkServerHealth();
+                }
+            }, [config.apiEndpoint, activeTab]);
+
+            // Click outside to close suggestions
+            useEffect(() => {
+                function handleClickOutside(event) {
+                    if (suggestionsRef.current && !suggestionsRef.current.contains(event.target)) {
+                        setShowSuggestions(false);
+                    }
+                }
+                document.addEventListener('mousedown', handleClickOutside);
+                return () => document.removeEventListener('mousedown', handleClickOutside);
+            }, []);
+
+            // Get trending profiles based on user interests
+            const getTrendingProfiles = () => {
+                if (!config.interests || config.interests.length === 0) {
+                    // Default: show mix from all categories
+                    const allProfiles = [];
+                    Object.keys(PROFILE_DATABASE).forEach(category => {
+                        allProfiles.push(...PROFILE_DATABASE[category].slice(0, 1).map(p => ({...p, category})));
+                    });
+                    return allProfiles.slice(0, 5);
+                }
+
+                // Show profiles from user's interests
+                const profiles = [];
+                config.interests.forEach(interest => {
+                    if (PROFILE_DATABASE[interest]) {
+                        profiles.push(...PROFILE_DATABASE[interest].slice(0, 2).map(p => ({...p, category: interest})));
+                    }
+                });
+                return profiles.slice(0, 5);
+            };
+
+            const checkServerHealth = async (endpoint = null) => {
+                const targetEndpoint = endpoint || config.apiEndpoint;
+                if (!targetEndpoint) {
+                    console.log('No endpoint configured, skipping health check');
+                    return;
+                }
+                
+                setServerHealth({ status: 'checking' });
+                try {
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(() => controller.abort(), 5000);
+                    
+                    const response = await fetch(`${targetEndpoint}/health`, {
+                        signal: controller.signal
+                    });
+                    clearTimeout(timeoutId);
+                    
+                    const data = await response.json();
+                    setServerHealth({
+                        status: 'healthy',
+                        data: data
+                    });
+                } catch (error) {
+                    if (error.name === 'AbortError') {
+                        setServerHealth({
+                            status: 'unhealthy',
+                            error: 'Request timeout - server not responding'
+                        });
+                    } else {
+                        setServerHealth({
+                            status: 'unhealthy',
+                            error: error.message
+                        });
+                    }
+                }
+            };
+
+            const saveConfig = () => {
+                try {
+                    localStorage.setItem('xgrab_config', JSON.stringify(config));
+                    showAlert('Configuration saved successfully!', 'success');
+                } catch (e) {
+                    showAlert('Failed to save configuration: ' + e.message, 'error');
+                }
+            };
+
+            const clearConfig = () => {
+                if (confirm('Are you sure you want to clear all configuration? This cannot be undone.')) {
+                    localStorage.removeItem('xgrab_config');
+                    setConfig({
+                        consumerKey: '',
+                        consumerSecret: '',
+                        bearerToken: '',
+                        apiEndpoint: 'http://localhost:3001',
+                        interests: []
+                    });
+                    showAlert('Configuration cleared', 'info');
+                }
+            };
+
+            const toggleInterest = (interest) => {
+                const currentInterests = config.interests || [];
+                const newInterests = currentInterests.includes(interest)
+                    ? currentInterests.filter(i => i !== interest)
+                    : [...currentInterests, interest];
+                
+                setConfig({...config, interests: newInterests});
+            };
+
+            const testConnection = async () => {
+                if (!config.bearerToken) {
+                    showAlert('Please configure your Bearer Token first', 'error');
+                    return;
+                }
+
+                setLoading(true);
+                try {
+                    const response = await fetch(`${config.apiEndpoint}/api/test`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            bearerToken: config.bearerToken
+                        })
+                    });
+
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        showAlert('✅ Connection successful! X API is working.', 'success');
+                    } else {
+                        showAlert('❌ Connection failed: ' + data.error, 'error');
+                    }
+                } catch (error) {
+                    showAlert('❌ Cannot connect to backend server. Make sure the server is running.', 'error');
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            const searchProfiles = async (query) => {
+                if (!query || query.length < 2) {
+                    setProfileSuggestions([]);
+                    setShowSuggestions(false);
+                    return;
+                }
+
+                if (searchTimeoutRef.current) {
+                    clearTimeout(searchTimeoutRef.current);
+                }
+
+                searchTimeoutRef.current = setTimeout(async () => {
+                    if (!config.bearerToken) {
+                        return;
+                    }
+
+                    setSearchingProfiles(true);
+                    setShowSuggestions(true);
+
+                    try {
+                        const cleanQuery = query.replace('@', '');
+                        const response = await fetch(`${config.apiEndpoint}/api/search-users`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                bearerToken: config.bearerToken,
+                                query: cleanQuery
+                            })
+                        });
+
+                        const data = await response.json();
+                        
+                        if (data.success && data.users) {
+                            setProfileSuggestions(data.users);
+                        } else {
+                            setProfileSuggestions([]);
+                        }
+                    } catch (error) {
+                        console.error('Profile search error:', error);
+                        setProfileSuggestions([]);
+                    } finally {
+                        setSearchingProfiles(false);
+                    }
+                }, 500);
+            };
+
+            const handleHandleChange = (value) => {
+                setHandle(value);
+                setSelectedProfile(null);
+                searchProfiles(value);
+            };
+
+            const selectProfile = (profile) => {
+                setHandle(profile.username);
+                setSelectedProfile(profile);
+                setShowSuggestions(false);
+                setProfileSuggestions([]);
+            };
+
+            const selectTrendingProfile = (profile) => {
+                setHandle(profile.handle);
+                setSelectedProfile({ username: profile.handle, name: profile.name });
+                showAlert(`✓ Selected: ${profile.name} (@${profile.handle})`, 'success');
+            };
+
+            const showAlert = (message, type) => {
+                setAlert({ message, type });
+                setTimeout(() => setAlert(null), 5000);
+            };
+
+            const isConfigured = () => {
+                return config.bearerToken && config.bearerToken.length > 0;
+            };
+
+            const handleSearch = async () => {
+                if (!isConfigured()) {
+                    showAlert('Please configure your X API credentials first', 'error');
+                    setActiveTab('settings');
+                    return;
+                }
+
+                if (!handle.trim()) {
+                    showAlert('Please enter an X handle', 'error');
+                    return;
+                }
+
+                if (searchType === 'daterange' && (!startDate || !endDate)) {
+                    showAlert('Please select both start and end dates', 'error');
+                    return;
+                }
+
+                setLoading(true);
+                setSearched(true);
+
+                try {
+                    const cleanHandle = handle.replace('@', '').replace('#', '');
+                    const response = await fetch(`${config.apiEndpoint}/api/tweets`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            bearerToken: config.bearerToken,
+                            username: cleanHandle,
+                            startDate: searchType === 'daterange' ? startDate : null,
+                            endDate: searchType === 'daterange' ? endDate : null,
+                            maxResults: maxTweets
+                        })
+                    });
+
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        // Add isReply field to each tweet
+                        // Tweets are replies if they have reply-related fields
+                        const tweetsWithType = data.tweets.map(tweet => ({
+                            ...tweet,
+                            isReply: tweet.in_reply_to_user_id || tweet.in_reply_to_status_id || false
+                        }));
+                        setTweets(tweetsWithType);
+                        showAlert(`Successfully retrieved ${tweetsWithType.length} tweets!`, 'success');
+                    } else {
+                        showAlert('Error: ' + data.error, 'error');
+                        setTweets([]);
+                    }
+                } catch (error) {
+                    showAlert('Failed to fetch tweets: ' + error.message, 'error');
+                    setTweets([]);
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            const exportToCSV = () => {
+                const filteredTweets = getFilteredTweets();
+                if (filteredTweets.length === 0) return;
+
+                const headers = ['ID', 'Author', 'Handle', 'Date', 'Content', 'Type', 'Likes', 'Retweets', 'Replies', 'URL'];
+                const csvContent = [
+                    headers.join(','),
+                    ...filteredTweets.map(tweet => [
+                        tweet.id,
+                        `"${tweet.author}"`,
+                        `"${tweet.handle}"`,
+                        tweet.date,
+                        `"${(tweet.content || '').replace(/"/g, '""')}"`,
+                        `"${tweet.isReply ? 'Reply' : 'Post'}"`,
+                        tweet.likes || 0,
+                        tweet.retweets || 0,
+                        tweet.replies || 0,
+                        tweet.url || ''
+                    ].join(','))
+                ].join('\n');
+
+                const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                const link = document.createElement('a');
+                const url = URL.createObjectURL(blob);
+                
+                link.setAttribute('href', url);
+                link.setAttribute('download', `${handle.replace('@', '')}_tweets_${new Date().toISOString().split('T')[0]}.csv`);
+                link.style.visibility = 'hidden';
+                
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                
+                showAlert('CSV file downloaded successfully!', 'success');
+            };
+
+            const exportToExcel = () => {
+                const filteredTweets = getFilteredTweets();
+                if (filteredTweets.length === 0) return;
+                
+                try {
+                    // Prepare data for Excel
+                    const excelData = filteredTweets.map(tweet => ({
+                        'ID': tweet.id,
+                        'Author': tweet.author,
+                        'Handle': tweet.handle,
+                        'Date': tweet.date,
+                        'Content': tweet.content || '',
+                        'Type': tweet.isReply ? 'Reply' : 'Post',
+                        'Likes': tweet.likes || 0,
+                        'Retweets': tweet.retweets || 0,
+                        'Replies': tweet.replies || 0,
+                        'URL': tweet.url || ''
+                    }));
+
+                    // Create workbook and worksheet
+                    const wb = XLSX.utils.book_new();
+                    const ws = XLSX.utils.json_to_sheet(excelData);
+                    
+                    // Set column widths
+                    ws['!cols'] = [
+                        { wch: 20 }, // ID
+                        { wch: 20 }, // Author
+                        { wch: 15 }, // Handle
+                        { wch: 20 }, // Date
+                        { wch: 50 }, // Content
+                        { wch: 10 }, // Type
+                        { wch: 10 }, // Likes
+                        { wch: 10 }, // Retweets
+                        { wch: 10 }, // Replies
+                        { wch: 40 }  // URL
+                    ];
+                    
+                    XLSX.utils.book_append_sheet(wb, ws, 'Tweets');
+                    
+                    // Download
+                    XLSX.writeFile(wb, `${handle.replace('@', '')}_tweets_${new Date().toISOString().split('T')[0]}.xlsx`);
+                    
+                    showAlert('Excel file downloaded successfully!', 'success');
+                } catch (error) {
+                    showAlert('Error exporting to Excel: ' + error.message, 'error');
+                }
+            };
+
+            const exportToJSON = () => {
+                const filteredTweets = getFilteredTweets();
+                if (filteredTweets.length === 0) return;
+
+                const jsonData = {
+                    exportDate: new Date().toISOString(),
+                    handle: handle,
+                    totalTweets: filteredTweets.length,
+                    contentType: contentType,
+                    tweets: filteredTweets.map(tweet => ({
+                        id: tweet.id,
+                        author: tweet.author,
+                        handle: tweet.handle,
+                        date: tweet.date,
+                        content: tweet.content || '',
+                        type: tweet.isReply ? 'reply' : 'post',
+                        metrics: {
+                            likes: tweet.likes || 0,
+                            retweets: tweet.retweets || 0,
+                            replies: tweet.replies || 0
+                        },
+                        url: tweet.url || ''
+                    }))
+                };
+
+                const blob = new Blob([JSON.stringify(jsonData, null, 2)], { type: 'application/json' });
+                const link = document.createElement('a');
+                const url = URL.createObjectURL(blob);
+                
+                link.setAttribute('href', url);
+                link.setAttribute('download', `${handle.replace('@', '')}_tweets_${new Date().toISOString().split('T')[0]}.json`);
+                link.style.visibility = 'hidden';
+                
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                
+                showAlert('JSON file downloaded successfully!', 'success');
+            };
+
+            const exportToPDF = () => {
+                const filteredTweets = getFilteredTweets();
+                if (filteredTweets.length === 0) return;
+
+                try {
+                    const { jsPDF } = window.jspdf;
+                    const doc = new jsPDF();
+                    
+                    // Title
+                    doc.setFontSize(16);
+                    doc.text(`X Export - @${handle.replace('@', '')}`, 14, 15);
+                    
+                    // Metadata
+                    doc.setFontSize(10);
+                    doc.text(`Export Date: ${new Date().toLocaleString()}`, 14, 22);
+                    doc.text(`Total Tweets: ${filteredTweets.length}`, 14, 27);
+                    doc.text(`Content Type: ${contentType === 'both' ? 'Posts & Replies' : contentType === 'posts' ? 'Posts Only' : 'Replies Only'}`, 14, 32);
+                    
+                    // Prepare table data
+                    const tableData = filteredTweets.map(tweet => [
+                        tweet.date.substring(0, 10),
+                        tweet.isReply ? 'Reply' : 'Post',
+                        (tweet.content || '').substring(0, 100) + ((tweet.content || '').length > 100 ? '...' : ''),
+                        tweet.likes || 0,
+                        tweet.retweets || 0
+                    ]);
+                    
+                    // Add table
+                    doc.autoTable({
+                        head: [['Date', 'Type', 'Content', 'Likes', 'RTs']],
+                        body: tableData,
+                        startY: 37,
+                        styles: { fontSize: 8, cellPadding: 2 },
+                        headStyles: { fillColor: [0, 0, 0] },
+                        columnStyles: {
+                            0: { cellWidth: 25 },
+                            1: { cellWidth: 15 },
+                            2: { cellWidth: 100 },
+                            3: { cellWidth: 15 },
+                            4: { cellWidth: 15 }
+                        },
+                        margin: { left: 14, right: 14 }
+                    });
+                    
+                    // Download
+                    doc.save(`${handle.replace('@', '')}_tweets_${new Date().toISOString().split('T')[0]}.pdf`);
+                    
+                    showAlert('PDF file downloaded successfully!', 'success');
+                } catch (error) {
+                    showAlert('Error exporting to PDF: ' + error.message, 'error');
+                }
+            };
+
+            const exportToText = () => {
+                const filteredTweets = getFilteredTweets();
+                if (filteredTweets.length === 0) return;
+
+                let textContent = `X EXPORT - @${handle.replace('@', '')}\n`;
+                textContent += `Export Date: ${new Date().toLocaleString()}\n`;
+                textContent += `Total Tweets: ${filteredTweets.length}\n`;
+                textContent += `Content Type: ${contentType === 'both' ? 'Posts & Replies' : contentType === 'posts' ? 'Posts Only' : 'Replies Only'}\n`;
+                textContent += `${'='.repeat(80)}\n\n`;
+
+                filteredTweets.forEach((tweet, index) => {
+                    textContent += `[${index + 1}] ${tweet.isReply ? 'REPLY' : 'POST'} - ${tweet.date}\n`;
+                    textContent += `Author: ${tweet.author} (@${tweet.handle})\n`;
+                    textContent += `Content: ${tweet.content || ''}\n`;
+                    textContent += `Metrics: ${tweet.likes || 0} likes, ${tweet.retweets || 0} retweets, ${tweet.replies || 0} replies\n`;
+                    textContent += `URL: ${tweet.url || ''}\n`;
+                    textContent += `${'-'.repeat(80)}\n\n`;
+                });
+
+                const blob = new Blob([textContent], { type: 'text/plain;charset=utf-8' });
+                const link = document.createElement('a');
+                const url = URL.createObjectURL(blob);
+                
+                link.setAttribute('href', url);
+                link.setAttribute('download', `${handle.replace('@', '')}_tweets_${new Date().toISOString().split('T')[0]}.txt`);
+                link.style.visibility = 'hidden';
+                
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                
+                showAlert('Text file downloaded successfully!', 'success');
+            };
+
+            // Helper function to get filtered tweets based on content type
+            const getFilteredTweets = () => {
+                if (contentType === 'both') {
+                    return tweets;
+                } else if (contentType === 'posts') {
+                    return tweets.filter(tweet => !tweet.isReply);
+                } else if (contentType === 'replies') {
+                    return tweets.filter(tweet => tweet.isReply);
+                }
+                return tweets;
+            };
+
+            // ==================== BULK DELETE FUNCTIONS ====================
+            
+            const isDeleteConfigured = () => {
+                return config.consumerKey && config.consumerSecret && 
+                       config.accessToken && config.accessTokenSecret;
+            };
+
+            const loadMyTweets = async (page = 1, dateFilter = false) => {
+                if (!isDeleteConfigured()) {
+                    showAlert('Please configure OAuth credentials in Configuration tab for delete operations', 'error');
+                    setActiveTab('settings');
+                    return;
+                }
+
+                setDeleteLoading(true);
+                setDeleteSearched(true);
+
+                try {
+                    const response = await fetch(`${config.apiEndpoint}/api/my-tweets`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            accessToken: config.accessToken,
+                            accessTokenSecret: config.accessTokenSecret,
+                            consumerKey: config.consumerKey,
+                            consumerSecret: config.consumerSecret,
+                            startDate: dateFilter && deleteStartDate ? deleteStartDate : null,
+                            endDate: dateFilter && deleteEndDate ? deleteEndDate : null,
+                            page: page,
+                            perPage: 20
+                        })
+                    });
+
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        setDeleteTweets(data.tweets);
+                        setMyHandle(data.handle);
+                        setDeletePage(page);
+                        setDeleteTotalPages(Math.ceil(data.totalCount / 20));
+                        setSelectedTweetIds(new Set());
+                        showAlert(`Loaded ${data.tweets.length} tweets (Page ${page})`, 'success');
+                    } else {
+                        showAlert('Error: ' + data.error, 'error');
+                        setDeleteTweets([]);
+                    }
+                } catch (error) {
+                    showAlert('Failed to load tweets: ' + error.message, 'error');
+                    setDeleteTweets([]);
+                } finally {
+                    setDeleteLoading(false);
+                }
+            };
+
+            const toggleTweetSelection = (tweetId) => {
+                const newSelected = new Set(selectedTweetIds);
+                if (newSelected.has(tweetId)) {
+                    newSelected.delete(tweetId);
+                } else {
+                    newSelected.add(tweetId);
+                }
+                setSelectedTweetIds(newSelected);
+            };
+
+            const toggleSelectAll = () => {
+                if (selectedTweetIds.size === deleteTweets.length) {
+                    setSelectedTweetIds(new Set());
+                } else {
+                    setSelectedTweetIds(new Set(deleteTweets.map(t => t.id)));
+                }
+            };
+
+            const handleBulkDelete = () => {
+                if (selectedTweetIds.size === 0) {
+                    showAlert('Please select tweets to delete', 'error');
+                    return;
+                }
+                setShowDeleteConfirm(true);
+                setDeleteConfirmText('');
+            };
+
+            const executeBulkDelete = async () => {
+                if (deleteConfirmText !== 'DELETE PERMANENTLY') {
+                    showAlert('Please type "DELETE PERMANENTLY" to confirm', 'error');
+                    return;
+                }
+
+                setShowDeleteConfirm(false);
+                setDeleteLoading(true);
+
+                const selectedTweets = deleteTweets.filter(t => selectedTweetIds.has(t.id));
+                const total = selectedTweets.length;
+                let current = 0;
+                const errors = [];
+
+                setDeleteProgress({ current: 0, total, errors: [] });
+
+                for (const tweet of selectedTweets) {
+                    try {
+                        const response = await fetch(`${config.apiEndpoint}/api/delete-tweet`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                tweetId: tweet.id,
+                                accessToken: config.accessToken,
+                                accessTokenSecret: config.accessTokenSecret,
+                                consumerKey: config.consumerKey,
+                                consumerSecret: config.consumerSecret
+                            })
+                        });
+
+                        const data = await response.json();
+                        
+                        if (!data.success) {
+                            errors.push({ tweetId: tweet.id, error: data.error });
+                        }
+                    } catch (error) {
+                        errors.push({ tweetId: tweet.id, error: error.message });
+                    }
+
+                    current++;
+                    setDeleteProgress({ current, total, errors });
+
+                    // Rate limit: 50 per 15 min = ~3 seconds between requests
+                    if (current < total) {
+                        await new Promise(resolve => setTimeout(resolve, 3200));
+                    }
+                }
+
+                setDeleteLoading(false);
+                
+                const successCount = total - errors.length;
+                if (errors.length === 0) {
+                    showAlert(`✅ Successfully deleted ${successCount} tweet${successCount !== 1 ? 's' : ''}!`, 'success');
+                } else {
+                    showAlert(`⚠️ Deleted ${successCount} tweets. ${errors.length} failed (see console for details)`, 'warning');
+                    console.error('Delete errors:', errors);
+                }
+
+                // Reload tweets
+                loadMyTweets(deletePage, deleteStartDate || deleteEndDate);
+            };
+
+            const cancelDeleteConfirm = () => {
+                setShowDeleteConfirm(false);
+                setDeleteConfirmText('');
+            };
+
+
+            const formatDate = (dateString) => {
+                return new Date(dateString).toLocaleDateString('en-US', {
+                    year: 'numeric',
+                    month: 'short',
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+            };
+
+            const togglePasswordVisibility = (field) => {
+                setShowPasswords({
+                    ...showPasswords,
+                    [field]: !showPasswords[field]
+                });
+            };
+
+            const maskText = (text) => {
+                if (!text) return '';
+                return text.split('').map(() => '●').join('');
+            };
+
+            return (
+                <div className="container">
+                    <div className="header">
+                        <h1>
+                            <svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                {/* Rounded square container */}
+                                <rect x="3" y="3" width="34" height="34" rx="8" stroke="white" strokeWidth="2.5" fill="none"/>
+                                {/* Download arrow */}
+                                <path d="M20 11 L20 25 M20 25 L14 19 M20 25 L26 19" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+                                {/* Base line */}
+                                <line x1="12" y1="31" x2="28" y2="31" stroke="white" strokeWidth="2.5" strokeLinecap="round"/>
+                            </svg>
+                            XGrab
+                        </h1>
+                        <p>X Export and Delete App</p>
+                    </div>
+
+                    <div className="content">
+                        {alert && (
+                            <div className={`alert alert-${alert.type}`}>
+                                {alert.message}
+                            </div>
+                        )}
+
+                        <div className="tabs">
+                            <div
+                                className={`tab ${activeTab === 'search' ? 'active' : ''}`}
+                                onClick={() => setActiveTab('search')}
+                            >
+                                🔍 Search & Export
+                            </div>
+                            <div
+                                className={`tab ${activeTab === 'delete' ? 'active' : ''}`}
+                                onClick={() => setActiveTab('delete')}
+                                style={{color: activeTab === 'delete' ? '#dc2626' : '#657786'}}
+                            >
+                                🗑️ Bulk Delete
+                            </div>
+                            <div
+                                className={`tab ${activeTab === 'settings' ? 'active' : ''}`}
+                                onClick={() => setActiveTab('settings')}
+                            >
+                                ⚙️ Configuration
+                            </div>
+                        </div>
+
+                        {activeTab === 'settings' && (
+                            <div>
+                                <div style={{marginBottom: '20px', display: 'flex', gap: '10px', alignItems: 'center'}}>
+                                    <span className={`status-indicator ${isConfigured() ? 'status-configured' : 'status-not-configured'}`}>
+                                        {isConfigured() ? '✓ API Configured' : '✗ Not Configured'}
+                                    </span>
+                                    {serverHealth && serverHealth.status !== 'checking' && (
+                                        <span className={`status-indicator ${serverHealth.status === 'healthy' ? 'status-healthy' : 'status-unhealthy'}`}>
+                                            {serverHealth.status === 'healthy' ? '✓ Server Healthy' : '✗ Server Offline'}
+                                        </span>
+                                    )}
+                                    {serverHealth && serverHealth.status === 'checking' && (
+                                        <span className="status-indicator" style={{background: '#e0e7ff', color: '#3730a3'}}>
+                                            ⏳ Checking Server...
+                                        </span>
+                                    )}
+                                </div>
+
+                                <div className="alert alert-warning">
+                                    <strong>🔒 Security Notice:</strong> Your API credentials are stored locally in your browser. 
+                                    Never share your credentials with anyone. Keep your API keys secure!
+                                </div>
+
+                                <div className="config-section">
+                                    <h3>X API Credentials</h3>
+                                    
+                                    <div className="form-group">
+                                        <label>Consumer Key (API Key)</label>
+                                        <div className="password-input-wrapper">
+                                            <input
+                                                type={showPasswords.consumerKey ? "text" : "password"}
+                                                placeholder="Enter your Consumer Key"
+                                                value={showPasswords.consumerKey ? config.consumerKey : maskText(config.consumerKey)}
+                                                onChange={(e) => {
+                                                    if (showPasswords.consumerKey) {
+                                                        setConfig({...config, consumerKey: e.target.value});
+                                                    }
+                                                }}
+                                            />
+                                            <button 
+                                                className="toggle-password"
+                                                onClick={() => togglePasswordVisibility('consumerKey')}
+                                            >
+                                                {showPasswords.consumerKey ? '👁️ Hide' : '👁️ Show'}
+                                            </button>
+                                        </div>
+                                        <div className="help-text">
+                                            Found in X Developer Portal → Projects & Apps → Your App → Keys and tokens
+                                        </div>
+                                    </div>
+
+                                    <div className="form-group">
+                                        <label>Consumer Secret (API Secret)</label>
+                                        <div className="password-input-wrapper">
+                                            <input
+                                                type={showPasswords.consumerSecret ? "text" : "password"}
+                                                placeholder="Enter your Consumer Secret"
+                                                value={config.consumerSecret}
+                                                onChange={(e) => setConfig({...config, consumerSecret: e.target.value})}
+                                            />
+                                            <button 
+                                                className="toggle-password"
+                                                onClick={() => togglePasswordVisibility('consumerSecret')}
+                                            >
+                                                {showPasswords.consumerSecret ? '👁️ Hide' : '👁️ Show'}
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <div className="form-group">
+                                        <label>Bearer Token</label>
+                                        <div className="password-input-wrapper">
+                                            <textarea
+                                                className={`password-textarea ${!showPasswords.bearerToken ? 'masked' : ''}`}
+                                                placeholder="Enter your Bearer Token"
+                                                value={showPasswords.bearerToken ? config.bearerToken : maskText(config.bearerToken)}
+                                                onChange={(e) => {
+                                                    if (showPasswords.bearerToken) {
+                                                        setConfig({...config, bearerToken: e.target.value});
+                                                    }
+                                                }}
+                                                rows="3"
+                                                style={{paddingRight: '80px'}}
+                                            />
+                                            <button 
+                                                className="toggle-password"
+                                                onClick={() => togglePasswordVisibility('bearerToken')}
+                                            >
+                                                {showPasswords.bearerToken ? '👁️ Hide' : '👁️ Show'}
+                                            </button>
+                                        </div>
+                                        <div className="help-text">
+                                            Your Bearer Token for authenticating API requests
+                                        </div>
+                                    </div>
+
+                                    <div className="form-group">
+                                        <label>Access Token (OAuth 1.0a) - Optional</label>
+                                        <div className="password-input-wrapper">
+                                            <textarea
+                                                className={`password-textarea ${!showPasswords.accessToken ? 'masked' : ''}`}
+                                                placeholder="Enter your Access Token"
+                                                value={showPasswords.accessToken ? config.accessToken : maskText(config.accessToken)}
+                                                onChange={(e) => {
+                                                    if (showPasswords.accessToken) {
+                                                        setConfig({...config, accessToken: e.target.value});
+                                                    }
+                                                }}
+                                                rows="2"
+                                                style={{paddingRight: '80px'}}
+                                            />
+                                            <button 
+                                                className="toggle-password"
+                                                onClick={() => togglePasswordVisibility('accessToken')}
+                                            >
+                                                {showPasswords.accessToken ? '👁️ Hide' : '👁️ Show'}
+                                            </button>
+                                        </div>
+                                        <div className="help-text">
+                                            Required ONLY for Bulk Delete operations. Generate in X Developer Portal → User authentication settings → OAuth 1.0a
+                                        </div>
+                                    </div>
+
+                                    <div className="form-group">
+                                        <label>Access Token Secret (OAuth 1.0a) - Optional</label>
+                                        <div className="password-input-wrapper">
+                                            <textarea
+                                                className={`password-textarea ${!showPasswords.accessTokenSecret ? 'masked' : ''}`}
+                                                placeholder="Enter your Access Token Secret"
+                                                value={showPasswords.accessTokenSecret ? config.accessTokenSecret : maskText(config.accessTokenSecret)}
+                                                onChange={(e) => {
+                                                    if (showPasswords.accessTokenSecret) {
+                                                        setConfig({...config, accessTokenSecret: e.target.value});
+                                                    }
+                                                }}
+                                                rows="2"
+                                                style={{paddingRight: '80px'}}
+                                            />
+                                            <button 
+                                                className="toggle-password"
+                                                onClick={() => togglePasswordVisibility('accessTokenSecret')}
+                                            >
+                                                {showPasswords.accessTokenSecret ? '👁️ Hide' : '👁️ Show'}
+                                            </button>
+                                        </div>
+                                        <div className="help-text">
+                                            Required ONLY for Bulk Delete operations. Keep this secret and never share it.
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="config-section">
+                                    <h3>Your Interests</h3>
+                                    <p style={{fontSize: '14px', color: '#657786', marginBottom: '15px'}}>
+                                        Select topics you're interested in to see relevant trending profiles in the search page
+                                    </p>
+                                    <div className="interest-selector">
+                                        {AVAILABLE_INTERESTS.map(interest => (
+                                            <div
+                                                key={interest}
+                                                className={`interest-tag ${(config.interests || []).includes(interest) ? 'selected' : ''}`}
+                                                onClick={() => toggleInterest(interest)}
+                                            >
+                                                {interest}
+                                            </div>
+                                        ))}
+                                    </div>
+                                    <div className="help-text">
+                                        Selected: {(config.interests || []).length} interest{(config.interests || []).length !== 1 ? 's' : ''}
+                                    </div>
+                                </div>
+
+                                <div className="config-section">
+                                    <h3>Backend Configuration</h3>
+                                    
+                                    <div className="form-group">
+                                        <label>API Endpoint URL</label>
+                                        <input
+                                            type="text"
+                                            placeholder="http://localhost:3001"
+                                            value={config.apiEndpoint}
+                                            onChange={(e) => setConfig({...config, apiEndpoint: e.target.value})}
+                                        />
+                                        <div className="help-text">
+                                            URL of your backend server (default: http://localhost:3001)
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="button-group">
+                                    <button className="button button-secondary" onClick={saveConfig}>
+                                        💾 Save Configuration
+                                    </button>
+                                    <button className="button" onClick={testConnection} disabled={loading}>
+                                        {loading ? 'Testing...' : '🔌 Test Connection'}
+                                    </button>
+                                    <button className="button" onClick={() => checkServerHealth()}>
+                                        🏥 Check Server Health
+                                    </button>
+                                    <button className="button button-danger" onClick={clearConfig}>
+                                        🗑️ Clear All
+                                    </button>
+                                </div>
+
+                                <div className="alert alert-info" style={{marginTop: '20px'}}>
+                                    <strong>📚 Need Help?</strong><br/>
+                                    1. Go to <a href="https://developer.twitter.com/en/portal" target="_blank" style={{color: '#1e40af'}}>X Developer Portal</a><br/>
+                                    2. Create a Project and App (if you haven't)<br/>
+                                    3. Generate your API Keys and Bearer Token<br/>
+                                    4. Make sure your backend server is running<br/>
+                                    5. Enter credentials above and click "Save Configuration"<br/>
+                                    6. Select your interests to personalize trending profiles<br/>
+                                    7. Click "Test Connection" to verify everything works
+                                </div>
+                            </div>
+                        )}
+
+                        {activeTab === 'search' && (
+                            <div className="main-layout">
+                                <div className="sidebar">
+                                    <h3>👥 Trending Profiles</h3>
+                                    {getTrendingProfiles().map((profile, index) => (
+                                        <div 
+                                            key={index} 
+                                            className="trending-profile"
+                                            onClick={() => selectTrendingProfile(profile)}
+                                        >
+                                            <div className="trending-avatar">{profile.avatar}</div>
+                                            <div className="trending-details">
+                                                <div className="trending-name">{profile.name}</div>
+                                                <div className="trending-handle">@{profile.handle}</div>
+                                                <div className="trending-category">{profile.category}</div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                    
+                                    <div className="alert alert-info" style={{fontSize: '13px', marginTop: '20px'}}>
+                                        <strong>💡 Personalize:</strong> Select your interests in Settings to see profiles relevant to you!
+                                    </div>
+                                </div>
+
+                                <div>
+                                    {!isConfigured() && (
+                                        <div className="alert alert-warning">
+                                            <strong>⚠️ Configuration Required</strong><br/>
+                                            Please configure your X API credentials in the Settings tab before searching.
+                                        </div>
+                                    )}
+
+                                    <div className="form-group">
+                                        <label>X Handle</label>
+                                        <div className="search-input-wrapper" ref={suggestionsRef}>
+                                            <input
+                                                type="text"
+                                                placeholder="Start typing: @elonmusk"
+                                                value={handle}
+                                                onChange={(e) => handleHandleChange(e.target.value)}
+                                                onFocus={() => {
+                                                    if (profileSuggestions.length > 0) {
+                                                        setShowSuggestions(true);
+                                                    }
+                                                }}
+                                            />
+                                            {showSuggestions && (
+                                                <div className="profile-suggestions">
+                                                    {searchingProfiles && (
+                                                        <div className="searching-indicator">
+                                                            Searching profiles...
+                                                        </div>
+                                                    )}
+                                                    {!searchingProfiles && profileSuggestions.length === 0 && (
+                                                        <div className="searching-indicator">
+                                                            No profiles found. Try a different search.
+                                                        </div>
+                                                    )}
+                                                    {!searchingProfiles && profileSuggestions.map((profile) => (
+                                                        <div 
+                                                            key={profile.id} 
+                                                            className="profile-suggestion"
+                                                            onClick={() => selectProfile(profile)}
+                                                        >
+                                                            <img 
+                                                                src={profile.profile_image_url} 
+                                                                alt={profile.name}
+                                                                className="profile-avatar"
+                                                            />
+                                                            <div className="profile-info">
+                                                                <div className="profile-name">
+                                                                    {profile.name}
+                                                                    {profile.verified && (
+                                                                        <span className="profile-verified">✓</span>
+                                                                    )}
+                                                                </div>
+                                                                <div className="profile-handle">@{profile.username}</div>
+                                                                {profile.public_metrics && (
+                                                                    <div className="profile-stats">
+                                                                        {profile.public_metrics.followers_count.toLocaleString()} followers
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+                                        {selectedProfile && (
+                                            <div className="help-text" style={{color: '#10b981'}}>
+                                                ✓ Selected: {selectedProfile.name} (@{selectedProfile.username})
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    <div className="form-group">
+                                        <label>Search Options</label>
+                                        <div className="search-options">
+                                            <div 
+                                                className={`radio-option ${searchType === 'all' ? 'selected' : ''}`}
+                                                onClick={() => setSearchType('all')}
+                                            >
+                                                <input
+                                                    type="radio"
+                                                    name="searchType"
+                                                    checked={searchType === 'all'}
+                                                    onChange={() => setSearchType('all')}
+                                                />
+                                                <label>All Tweets</label>
+                                            </div>
+                                            <div 
+                                                className={`radio-option ${searchType === 'daterange' ? 'selected' : ''}`}
+                                                onClick={() => setSearchType('daterange')}
+                                            >
+                                                <input
+                                                    type="radio"
+                                                    name="searchType"
+                                                    checked={searchType === 'daterange'}
+                                                    onChange={() => setSearchType('daterange')}
+                                                />
+                                                <label>Date Range</label>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {searchType === 'daterange' && (
+                                        <div className="form-group">
+                                            <label>Date Range</label>
+                                            <div className="date-range">
+                                                <div>
+                                                    <label style={{fontSize: '12px', marginBottom: '5px'}}>From</label>
+                                                    <input
+                                                        type="date"
+                                                        value={startDate}
+                                                        onChange={(e) => setStartDate(e.target.value)}
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label style={{fontSize: '12px', marginBottom: '5px'}}>To</label>
+                                                    <input
+                                                        type="date"
+                                                        value={endDate}
+                                                        onChange={(e) => setEndDate(e.target.value)}
+                                                    />
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    <div className="form-group">
+                                        <label>Content Type</label>
+                                        <div className="search-options">
+                                            <div 
+                                                className={`radio-option ${contentType === 'both' ? 'selected' : ''}`}
+                                                onClick={() => setContentType('both')}
+                                            >
+                                                <input
+                                                    type="radio"
+                                                    name="contentType"
+                                                    checked={contentType === 'both'}
+                                                    onChange={() => setContentType('both')}
+                                                />
+                                                <label>Posts & Replies</label>
+                                            </div>
+                                            <div 
+                                                className={`radio-option ${contentType === 'posts' ? 'selected' : ''}`}
+                                                onClick={() => setContentType('posts')}
+                                            >
+                                                <input
+                                                    type="radio"
+                                                    name="contentType"
+                                                    checked={contentType === 'posts'}
+                                                    onChange={() => setContentType('posts')}
+                                                />
+                                                <label>Posts Only</label>
+                                            </div>
+                                            <div 
+                                                className={`radio-option ${contentType === 'replies' ? 'selected' : ''}`}
+                                                onClick={() => setContentType('replies')}
+                                            >
+                                                <input
+                                                    type="radio"
+                                                    name="contentType"
+                                                    checked={contentType === 'replies'}
+                                                    onChange={() => setContentType('replies')}
+                                                />
+                                                <label>Replies Only</label>
+                                            </div>
+                                        </div>
+                                        <div className="help-text">
+                                            Filter results to show original posts, replies, or both
+                                        </div>
+                                    </div>
+
+                                    <div className="form-group">
+                                        <label>Maximum Tweets to Fetch</label>
+                                        <select 
+                                            value={maxTweets}
+                                            onChange={(e) => setMaxTweets(Number(e.target.value))}
+                                        >
+                                            <option value={100}>100 tweets</option>
+                                            <option value={500}>500 tweets</option>
+                                            <option value={1000}>1,000 tweets</option>
+                                            <option value={3200}>3,200 tweets (max)</option>
+                                        </select>
+                                        <div className="help-text">
+                                            X API limits to 3,200 most recent tweets per user
+                                        </div>
+                                    </div>
+
+                                    <button 
+                                        className="button" 
+                                        onClick={handleSearch}
+                                        disabled={loading || !isConfigured()}
+                                    >
+                                        {loading ? 'Searching...' : '🔍 Search Tweets'}
+                                    </button>
+
+                                    {loading && (
+                                        <div className="loading">
+                                            <div className="spinner"></div>
+                                            <p>Fetching tweets from X API...</p>
+                                        </div>
+                                    )}
+
+                                    {!loading && searched && tweets.length > 0 && (
+                                        <div className="results">
+                                            <div className="results-header">
+                                                <div className="results-count">
+                                                    Found {getFilteredTweets().length} tweet{getFilteredTweets().length !== 1 ? 's' : ''}
+                                                    {contentType !== 'both' && (
+                                                        <span style={{fontSize: '14px', color: '#657786', marginLeft: '8px'}}>
+                                                            ({contentType === 'posts' ? 'Posts Only' : 'Replies Only'})
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                <div style={{display: 'flex', gap: '8px', flexWrap: 'wrap'}}>
+                                                    <button className="export-button" onClick={exportToCSV} title="Export to CSV">
+                                                        📄 CSV
+                                                    </button>
+                                                    <button className="export-button" onClick={exportToExcel} title="Export to Excel">
+                                                        📊 Excel
+                                                    </button>
+                                                    <button className="export-button" onClick={exportToJSON} title="Export to JSON">
+                                                        📋 JSON
+                                                    </button>
+                                                    <button className="export-button" onClick={exportToPDF} title="Export to PDF">
+                                                        📕 PDF
+                                                    </button>
+                                                    <button className="export-button" onClick={exportToText} title="Export to Text">
+                                                        📝 TXT
+                                                    </button>
+                                                </div>
+                                            </div>
+
+                                            {getFilteredTweets().slice(0, 10).map(tweet => (
+                                                <div key={tweet.id} className="tweet-card">
+                                                    <div className="tweet-header">
+                                                        <div style={{display: 'flex', alignItems: 'center', gap: '8px'}}>
+                                                            <div className="tweet-author">@{tweet.handle}</div>
+                                                            <span style={{
+                                                                fontSize: '11px',
+                                                                padding: '2px 6px',
+                                                                borderRadius: '4px',
+                                                                background: tweet.isReply ? '#e8f5fe' : '#f0f0f0',
+                                                                color: tweet.isReply ? '#1877f2' : '#666',
+                                                                fontWeight: '500'
+                                                            }}>
+                                                                {tweet.isReply ? '💬 Reply' : '📝 Post'}
+                                                            </span>
+                                                        </div>
+                                                        <div className="tweet-date">{formatDate(tweet.date)}</div>
+                                                    </div>
+                                                    <div className="tweet-content">{tweet.content}</div>
+                                                    <div className="tweet-stats">
+                                                        <span>❤️ {tweet.likes || 0}</span>
+                                                        <span>🔁 {tweet.retweets || 0}</span>
+                                                        <span>💬 {tweet.replies || 0}</span>
+                                                    </div>
+                                                </div>
+                                            ))}
+
+                                            {getFilteredTweets().length > 10 && (
+                                                <p style={{textAlign: 'center', color: '#657786', marginTop: '20px'}}>
+                                                    ...and {getFilteredTweets().length - 10} more tweets. Use export buttons to see all results.
+                                                </p>
+                                            )}
+                                        </div>
+                                    )}
+
+                                    {!loading && searched && tweets.length === 0 && (
+                                        <div className="loading">
+                                            <p>No tweets found for the selected criteria.</p>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
+                        {activeTab === 'delete' && (
+                            <div>
+                                <div className="alert" style={{background: '#fef2f2', border: '1px solid #fca5a5', color: '#991b1b'}}>
+                                    <strong>⚠️ DANGER ZONE</strong><br/>
+                                    Delete your own tweets permanently. This action <strong>CANNOT BE UNDONE</strong>.
+                                </div>
+
+                                {!isDeleteConfigured() && (
+                                    <div className="alert alert-warning">
+                                        <strong>🔒 OAuth Credentials Required:</strong><br/>
+                                        Please configure your Access Token and Access Token Secret in the Configuration tab for delete operations.
+                                    </div>
+                                )}
+
+                                <div>
+                                    <div className="form-group">
+                                        <label>Your Handle</label>
+                                        <div style={{padding: '12px', background: '#f7f9fa', borderRadius: '8px', fontWeight: '500'}}>
+                                            {myHandle ? `@${myHandle}` : 'Not loaded yet'}
+                                        </div>
+                                    </div>
+
+                                    <button
+                                        className="button"
+                                        onClick={() => loadMyTweets(1, false)}
+                                        disabled={deleteLoading || !isDeleteConfigured()}
+                                        style={{marginBottom: '25px', maxWidth: '350px'}}
+                                    >
+                                        {deleteLoading ? '⏳ Loading...' : '📥 Load My Recent Tweets'}
+                                    </button>
+
+                                    <div className="form-group">
+                                        <label>Date Range Filter (Optional)</label>
+                                        <div className="date-range" style={{maxWidth: '400px'}}>
+                                            <div>
+                                                <label style={{fontSize: '12px', marginBottom: '5px'}}>From</label>
+                                                <input
+                                                    type="date"
+                                                    value={deleteStartDate}
+                                                    onChange={(e) => setDeleteStartDate(e.target.value)}
+                                                />
+                                            </div>
+                                            <div>
+                                                <label style={{fontSize: '12px', marginBottom: '5px'}}>To</label>
+                                                <input
+                                                    type="date"
+                                                    value={deleteEndDate}
+                                                    onChange={(e) => setDeleteEndDate(e.target.value)}
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <button
+                                        className="button button-secondary"
+                                        onClick={() => loadMyTweets(1, true)}
+                                        disabled={deleteLoading || !isDeleteConfigured() || (!deleteStartDate && !deleteEndDate)}
+                                        style={{marginBottom: '10px', maxWidth: '350px'}}
+                                    >
+                                        {deleteLoading ? '⏳ Searching...' : '🔍 Search by Date Range'}
+                                    </button>
+
+                                        {deleteSearched && deleteTweets.length > 0 && (
+                                            <div style={{marginTop: '20px'}}>
+                                                <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px'}}>
+                                                    <div>
+                                                        <strong>{selectedTweetIds.size} selected</strong> of {deleteTweets.length} tweets
+                                                    </div>
+                                                    <div style={{display: 'flex', gap: '10px'}}>
+                                                        <button 
+                                                            onClick={toggleSelectAll}
+                                                            style={{
+                                                                padding: '8px 16px',
+                                                                background: '#f7f9fa',
+                                                                border: '1px solid #e1e8ed',
+                                                                borderRadius: '6px',
+                                                                cursor: 'pointer',
+                                                                fontSize: '14px'
+                                                            }}
+                                                        >
+                                                            {selectedTweetIds.size === deleteTweets.length ? '⬜ Deselect All' : '✅ Select All'}
+                                                        </button>
+                                                        <button 
+                                                            onClick={handleBulkDelete}
+                                                            disabled={selectedTweetIds.size === 0 || deleteLoading}
+                                                            style={{
+                                                                padding: '8px 16px',
+                                                                background: selectedTweetIds.size > 0 ? '#dc2626' : '#ccc',
+                                                                color: 'white',
+                                                                border: 'none',
+                                                                borderRadius: '6px',
+                                                                cursor: selectedTweetIds.size > 0 ? 'pointer' : 'not-allowed',
+                                                                fontSize: '14px',
+                                                                fontWeight: '600'
+                                                            }}
+                                                        >
+                                                            🗑️ Delete Selected ({selectedTweetIds.size})
+                                                        </button>
+                                                    </div>
+                                                </div>
+
+                                                {/* Delete Progress */}
+                                                {deleteLoading && deleteProgress.total > 0 && (
+                                                    <div className="alert alert-info" style={{marginBottom: '20px'}}>
+                                                        <strong>⏳ Deleting tweets...</strong><br/>
+                                                        Progress: {deleteProgress.current} / {deleteProgress.total}<br/>
+                                                        {deleteProgress.errors.length > 0 && (
+                                                            <span style={{color: '#dc2626'}}>Errors: {deleteProgress.errors.length}</span>
+                                                        )}
+                                                        <div style={{
+                                                            width: '100%',
+                                                            height: '10px',
+                                                            background: '#e1e8ed',
+                                                            borderRadius: '5px',
+                                                            marginTop: '10px',
+                                                            overflow: 'hidden'
+                                                        }}>
+                                                            <div style={{
+                                                                width: `${(deleteProgress.current / deleteProgress.total) * 100}%`,
+                                                                height: '100%',
+                                                                background: '#1d9bf0',
+                                                                transition: 'width 0.3s'
+                                                            }}></div>
+                                                        </div>
+                                                    </div>
+                                                )}
+
+                                                {/* Tweet List */}
+                                                <div>
+                                                    {deleteTweets.map(tweet => (
+                                                        <div 
+                                                            key={tweet.id} 
+                                                            style={{
+                                                                border: '1px solid #e1e8ed',
+                                                                borderRadius: '8px',
+                                                                padding: '15px',
+                                                                marginBottom: '10px',
+                                                                background: selectedTweetIds.has(tweet.id) ? '#f0f9ff' : 'white',
+                                                                cursor: 'pointer',
+                                                                transition: 'all 0.2s'
+                                                            }}
+                                                            onClick={() => toggleTweetSelection(tweet.id)}
+                                                        >
+                                                            <div style={{display: 'flex', gap: '15px'}}>
+                                                                <div style={{flexShrink: 0}}>
+                                                                    <input 
+                                                                        type="checkbox" 
+                                                                        checked={selectedTweetIds.has(tweet.id)}
+                                                                        onChange={() => toggleTweetSelection(tweet.id)}
+                                                                        onClick={(e) => e.stopPropagation()}
+                                                                        style={{width: '18px', height: '18px', cursor: 'pointer'}}
+                                                                    />
+                                                                </div>
+                                                                <div style={{flex: 1}}>
+                                                                    <div style={{display: 'flex', justifyContent: 'space-between', marginBottom: '8px'}}>
+                                                                        <div style={{display: 'flex', alignItems: 'center', gap: '8px'}}>
+                                                                            <strong>@{tweet.handle}</strong>
+                                                                            <span style={{
+                                                                                fontSize: '11px',
+                                                                                padding: '2px 6px',
+                                                                                borderRadius: '4px',
+                                                                                background: tweet.isReply ? '#e8f5fe' : '#f0f0f0',
+                                                                                color: tweet.isReply ? '#1877f2' : '#666'
+                                                                            }}>
+                                                                                {tweet.isReply ? '💬 Reply' : '📝 Post'}
+                                                                            </span>
+                                                                        </div>
+                                                                        <div style={{fontSize: '14px', color: '#657786'}}>
+                                                                            {formatDate(tweet.date)}
+                                                                        </div>
+                                                                    </div>
+                                                                    <div style={{marginBottom: '8px', color: '#14171a'}}>
+                                                                        {tweet.content}
+                                                                    </div>
+                                                                    <div style={{fontSize: '14px', color: '#657786', display: 'flex', gap: '15px'}}>
+                                                                        <span>❤️ {tweet.likes || 0}</span>
+                                                                        <span>🔁 {tweet.retweets || 0}</span>
+                                                                        <span>💬 {tweet.replies || 0}</span>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+
+                                                {/* Pagination */}
+                                                {deleteTotalPages > 1 && (
+                                                    <div style={{
+                                                        display: 'flex',
+                                                        justifyContent: 'center',
+                                                        alignItems: 'center',
+                                                        gap: '10px',
+                                                        marginTop: '20px'
+                                                    }}>
+                                                        <button
+                                                            onClick={() => loadMyTweets(deletePage - 1, deleteStartDate || deleteEndDate)}
+                                                            disabled={deletePage === 1 || deleteLoading}
+                                                            style={{
+                                                                padding: '8px 16px',
+                                                                background: deletePage === 1 ? '#ccc' : '#000',
+                                                                color: 'white',
+                                                                border: 'none',
+                                                                borderRadius: '6px',
+                                                                cursor: deletePage === 1 ? 'not-allowed' : 'pointer'
+                                                            }}
+                                                        >
+                                                            ← Previous
+                                                        </button>
+                                                        <span>Page {deletePage} of {deleteTotalPages}</span>
+                                                        <button
+                                                            onClick={() => loadMyTweets(deletePage + 1, deleteStartDate || deleteEndDate)}
+                                                            disabled={deletePage === deleteTotalPages || deleteLoading}
+                                                            style={{
+                                                                padding: '8px 16px',
+                                                                background: deletePage === deleteTotalPages ? '#ccc' : '#000',
+                                                                color: 'white',
+                                                                border: 'none',
+                                                                borderRadius: '6px',
+                                                                cursor: deletePage === deleteTotalPages ? 'not-allowed' : 'pointer'
+                                                            }}
+                                                        >
+                                                            Next →
+                                                        </button>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
+
+                                    {deleteSearched && deleteTweets.length === 0 && !deleteLoading && (
+                                        <div className="loading" style={{marginTop: '20px'}}>
+                                            <p>No tweets found for the selected criteria.</p>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Delete Confirmation Modal */}
+                                {showDeleteConfirm && (
+                                    <div style={{
+                                        position: 'fixed',
+                                        top: 0,
+                                        left: 0,
+                                        right: 0,
+                                        bottom: 0,
+                                        background: 'rgba(0, 0, 0, 0.7)',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        zIndex: 10000
+                                    }}>
+                                        <div style={{
+                                            background: 'white',
+                                            borderRadius: '12px',
+                                            padding: '30px',
+                                            maxWidth: '500px',
+                                            width: '90%'
+                                        }}>
+                                            <h2 style={{color: '#dc2626', marginBottom: '20px'}}>
+                                                ⚠️ FINAL WARNING
+                                            </h2>
+                                            <p style={{fontSize: '16px', marginBottom: '15px'}}>
+                                                You are about to <strong>PERMANENTLY DELETE {selectedTweetIds.size} tweet{selectedTweetIds.size !== 1 ? 's' : ''}</strong>.
+                                            </p>
+                                            <p style={{fontSize: '16px', marginBottom: '20px', color: '#dc2626'}}>
+                                                <strong>This action CANNOT be undone. There is NO way to recover deleted tweets.</strong>
+                                            </p>
+                                            <div style={{marginBottom: '20px'}}>
+                                                <label style={{display: 'block', marginBottom: '10px', fontWeight: '600'}}>
+                                                    Type "DELETE PERMANENTLY" to confirm:
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    value={deleteConfirmText}
+                                                    onChange={(e) => setDeleteConfirmText(e.target.value)}
+                                                    placeholder="Type here..."
+                                                    style={{
+                                                        width: '100%',
+                                                        padding: '12px',
+                                                        border: '2px solid #e1e8ed',
+                                                        borderRadius: '8px',
+                                                        fontSize: '16px'
+                                                    }}
+                                                />
+                                            </div>
+                                            <div style={{display: 'flex', gap: '10px'}}>
+                                                <button
+                                                    onClick={cancelDeleteConfirm}
+                                                    style={{
+                                                        flex: 1,
+                                                        padding: '12px',
+                                                        background: '#f7f9fa',
+                                                        border: '1px solid #e1e8ed',
+                                                        borderRadius: '8px',
+                                                        cursor: 'pointer',
+                                                        fontSize: '16px',
+                                                        fontWeight: '600'
+                                                    }}
+                                                >
+                                                    Cancel
+                                                </button>
+                                                <button
+                                                    onClick={executeBulkDelete}
+                                                    disabled={deleteConfirmText !== 'DELETE PERMANENTLY'}
+                                                    style={{
+                                                        flex: 1,
+                                                        padding: '12px',
+                                                        background: deleteConfirmText === 'DELETE PERMANENTLY' ? '#dc2626' : '#ccc',
+                                                        color: 'white',
+                                                        border: 'none',
+                                                        borderRadius: '8px',
+                                                        cursor: deleteConfirmText === 'DELETE PERMANENTLY' ? 'pointer' : 'not-allowed',
+                                                        fontSize: '16px',
+                                                        fontWeight: '600'
+                                                    }}
+                                                >
+                                                    🗑️ Delete Permanently
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </div>
+
+                    <div className="footer">
+                        <div className="footer-copyright">
+                            © 2026 Partha Misra. All rights reserved.
+                        </div>
+                        <div className="footer-made-in-india">
+                            <span>Made with</span>
+                            <span className="heart">❤️</span>
+                            <span>in India</span>
+                            <svg className="india-flag" width="24" height="16" viewBox="0 0 24 16" xmlns="http://www.w3.org/2000/svg" style={{verticalAlign: 'middle', marginLeft: '4px'}}>
+                                <rect width="24" height="5.33" fill="#FF9933"/>
+                                <rect y="5.33" width="24" height="5.33" fill="#FFFFFF"/>
+                                <rect y="10.66" width="24" height="5.34" fill="#138808"/>
+                                <circle cx="12" cy="8" r="2.5" fill="none" stroke="#000080" strokeWidth="0.4"/>
+                                <line x1="12" y1="5.5" x2="12" y2="10.5" stroke="#000080" strokeWidth="0.25"/>
+                                <line x1="9.5" y1="8" x2="14.5" y2="8" stroke="#000080" strokeWidth="0.25"/>
+                                <line x1="10.23" y1="6.23" x2="13.77" y2="9.77" stroke="#000080" strokeWidth="0.25"/>
+                                <line x1="13.77" y1="6.23" x2="10.23" y2="9.77" stroke="#000080" strokeWidth="0.25"/>
+                                <line x1="10.23" y1="9.77" x2="13.77" y2="6.23" stroke="#000080" strokeWidth="0.25"/>
+                                <line x1="9.5" y1="6.23" x2="14.5" y2="9.77" stroke="#000080" strokeWidth="0.2"/>
+                                <line x1="14.5" y1="6.23" x2="9.5" y2="9.77" stroke="#000080" strokeWidth="0.2"/>
+                                <line x1="10.5" y1="5.7" x2="13.5" y2="10.3" stroke="#000080" strokeWidth="0.2"/>
+                                <line x1="13.5" y1="5.7" x2="10.5" y2="10.3" stroke="#000080" strokeWidth="0.2"/>
+                            </svg>
+                        </div>
+                        <div className="footer-links">
+                            <a href="https://github.com/parthamisra-sudo/xgrab" target="_blank" rel="noopener noreferrer">GitHub</a>
+                            <a href="https://x.com/parthamisra" target="_blank" rel="noopener noreferrer">X</a>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        ReactDOM.render(<XGrabApp />, document.getElementById('root'));
+    </script>
+</body>
+</html>

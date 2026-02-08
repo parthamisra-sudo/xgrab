@@ -1,0 +1,26 @@
+{
+  "name": "xgrab-backend",
+  "version": "1.0.0",
+  "description": "Backend server for XGrab Twitter Export Tool",
+  "main": "xgrab-server.js",
+  "scripts": {
+    "start": "node xgrab-server.js",
+    "dev": "nodemon xgrab-server.js"
+  },
+  "keywords": [
+    "twitter",
+    "export",
+    "api",
+    "xgrab"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.18.2",
+    "cors": "^2.8.5",
+    "axios": "^1.6.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  }
+}
