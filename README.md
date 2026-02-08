@@ -14,6 +14,9 @@ A production-ready application for searching, exporting, and bulk deleting tweet
 - Real-time tweet preview before exporting
 - Interest-based trending profile suggestions
 
+<img width="967" height="782" alt="image" src="https://github.com/user-attachments/assets/bfa5af12-a24e-45a5-9bda-51e23fa97ad2" />
+
+
 ### Bulk Delete
 - Load and view your own tweets via OAuth 1.0a
 - Filter tweets by date range for targeted deletion
@@ -21,6 +24,9 @@ A production-ready application for searching, exporting, and bulk deleting tweet
 - Safety confirmation requiring typed phrase "DELETE PERMANENTLY"
 - Progress tracking with visual progress bar
 - Rate-limit-aware deletion (3.2s between requests)
+
+<img width="961" height="635" alt="image" src="https://github.com/user-attachments/assets/806f2b4e-d758-4853-b008-c93b77e91d23" />
+
 
 ### Developer Experience
 - Rate limit handling (450 requests per 15 minutes)
@@ -111,6 +117,8 @@ You should see:
    - Access Token & Secret (optional, needed for Bulk Delete)
 4. Click **Save Configuration**
 5. Click **Test Connection** to verify
+
+<img width="599" height="897" alt="image" src="https://github.com/user-attachments/assets/8182f96d-f727-4829-8aeb-de22e5ff1bef" />
 
 ### Step 5: Start Using XGrab
 
